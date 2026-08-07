@@ -1,0 +1,25 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment files with private API keys
+.env
+*.env
+
+# Crash & log files
+crash.log
+*.log
+
+# Scratch test images
+*.png
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# IDE files
+.vscode/
+.idea/
