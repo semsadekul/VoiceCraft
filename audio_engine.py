@@ -24,6 +24,20 @@ DTYPE = "int16"
 BLOCKSIZE = 512
 
 
+def get_input_devices() -> list[tuple[int, str]]:
+    """Return a list of available input devices as (index, display_name)."""
+    devices = []
+    try:
+        raw_devices = sd.query_devices()
+        for idx, dev in enumerate(raw_devices):
+            if dev.get("max_input_channels", 0) > 0:
+                name = dev.get("name", f"Device {idx}")
+                devices.append((idx, name))
+    except Exception:
+        pass
+    return devices
+
+
 class AudioRecorder:
     """
     Records audio from the default microphone into a RAM WAV buffer.
@@ -33,7 +47,8 @@ class AudioRecorder:
     runs in a separate thread.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, device: int | str | None = None) -> None:
+        self.device = device
         self._buffer: list[np.ndarray] = []
         self._stream: Optional[sd.InputStream] = None
         self._lock = threading.Lock()
@@ -42,10 +57,44 @@ class AudioRecorder:
         self._silence_duration: float = 0.0
         self._speech_detected: bool = False
 
+    def set_device(self, device: int | str | None) -> None:
+        with self._lock:
+            self.device = device
+
+    def _resolve_device(self) -> int | None:
+        """Resolve device to an integer index, avoiding silent virtual devices like Iriun Webcam."""
+        try:
+            input_devs = get_input_devices()
+            if self.device is not None and str(self.device).strip():
+                target = str(self.device).strip().lower()
+                for idx, name in input_devs:
+                    if target == str(idx) or target in name.lower():
+                        return idx
+
+            # If default input device is a virtual webcam that produces silence, auto-fallback to real mic
+            def_idx = sd.default.device[0] if sd.default.device else None
+            def_name = ""
+            if def_idx is not None:
+                for idx, name in input_devs:
+                    if idx == def_idx:
+                        def_name = name
+                        break
+
+            if "iriun" in def_name.lower():
+                # Prefer genuine headset / microphone
+                for idx, name in input_devs:
+                    low = name.lower()
+                    if "iriun" not in low and "mapper" not in low and "primary" not in low:
+                        return idx
+
+            return def_idx
+        except Exception:
+            return None
+
     # ── Start / Stop ───────────────────────────────────────────
 
     def start(self) -> None:
-        """Start capturing audio into RAM."""
+        """Start capturing audio into RAM without blocking main GUI thread."""
         if self._recording:
             return
 
@@ -76,42 +125,65 @@ class AudioRecorder:
                     self._silence_duration = 0.0
                     self._speech_detected = True
 
-        try:
-            self._stream = sd.InputStream(
-                samplerate=SAMPLE_RATE,
-                channels=CHANNELS,
-                dtype=DTYPE,
-                blocksize=BLOCKSIZE,
-                callback=_callback,
-            )
-            self._stream.start()
-        except Exception:
-            # Force sounddevice re-initialization if device list was cached early (e.g. PC boot)
+        def _init_stream():
+            dev_idx = self._resolve_device()
             try:
-                sd._terminate()
-                sd._initialize()
-                self._stream = sd.InputStream(
+                stream = sd.InputStream(
+                    device=dev_idx,
                     samplerate=SAMPLE_RATE,
                     channels=CHANNELS,
                     dtype=DTYPE,
                     blocksize=BLOCKSIZE,
                     callback=_callback,
                 )
-                self._stream.start()
-            except Exception as retry_exc:
-                self._recording = False
-                raise retry_exc
+                stream.start()
+                with self._lock:
+                    if self._recording:
+                        self._stream = stream
+                    else:
+                        stream.stop()
+                        stream.close()
+            except Exception:
+                try:
+                    sd._terminate()
+                    sd._initialize()
+                    stream = sd.InputStream(
+                        device=dev_idx,
+                        samplerate=SAMPLE_RATE,
+                        channels=CHANNELS,
+                        dtype=DTYPE,
+                        blocksize=BLOCKSIZE,
+                        callback=_callback,
+                    )
+                    stream.start()
+                    with self._lock:
+                        if self._recording:
+                            self._stream = stream
+                        else:
+                            stream.stop()
+                            stream.close()
+                except Exception as retry_exc:
+                    with self._lock:
+                        self._recording = False
+
+        threading.Thread(target=_init_stream, daemon=True).start()
 
     def stop(self) -> None:
         """Stop capturing and drain the stream."""
-        if not self._recording:
-            return
-        self._recording = False
-
-        if self._stream is not None:
-            self._stream.stop()
-            self._stream.close()
+        with self._lock:
+            if not self._recording:
+                return
+            self._recording = False
+            stream = self._stream
             self._stream = None
+
+        if stream is not None:
+            try:
+                stream.stop()
+                stream.close()
+            except Exception:
+                pass
+
 
     # ── WAV Bytes ──────────────────────────────────────────────
 

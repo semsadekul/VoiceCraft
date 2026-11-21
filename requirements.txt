@@ -18,3 +18,5 @@ keyring>=25.0.0
 # Utilities
 pydantic-settings>=2.2.0
 loguru>=0.7.0
+requests>=2.31.0
+

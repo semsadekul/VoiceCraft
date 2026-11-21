@@ -28,8 +28,10 @@ class Settings(BaseSettings):
     dictation_mode: str = "hands_free"  # "hands_free" (tap key to toggle) or "push_to_talk" (hold key)
     silence_auto_stop_sec: float = 3.5  # seconds of silence to auto-stop in hands-free mode (0 = disabled/manual tap)
     language: str = "en"
+    hud_style: str = "bars"  # listening animation: "bars", "wave" (Aurora Wave), or "dots" (LED Matrix)
     text_cleanup: bool = False  # default OFF: Raw verbatim word-for-word speech input (no LLM rewriting)
     cleanup_model: str = "openai/gpt-oss-20b"  # Groq recommended replacement
+    input_device: str = ""  # Specific microphone name or index (e.g. realme Buds)
     custom_vocab: str = ""  # Custom domain jargon, acronyms, and vocabulary terms
 
     model_config = SettingsConfigDict(

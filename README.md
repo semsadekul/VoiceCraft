@@ -2,22 +2,25 @@
 
 Created with ❤️ by **Sadekul** ([semsadekul@gmail.com](mailto:semsadekul@gmail.com))
 
-**VoiceCraft** is an ultra-fast, lightweight, open-source desktop voice dictation suite for Windows built with Python, PySide6, Groq Whisper v3, and local CPU NumPy optimization.
+**VoiceCraft** is a lightweight, open-source desktop voice dictation app for Windows built with Python, PySide6, and Groq Whisper Large v3 Turbo (with Gemini 2.5 Flash as an optional alternative/fallback engine).
 
-It runs quietly in your system tray, listens to your speech with a single **`Right Ctrl`** hotkey tap, and automatically pastes clean verbatim text directly into any focused application (Word, Outlook, VS Code, Chrome, Slack) with sub-100ms response time.
+It runs quietly in your system tray, starts listening with a single **`Right Ctrl`** tap, and pastes the transcribed text directly into whichever application has focus (Word, Outlook, VS Code, Chrome, Slack, …).
 
 ---
 
 ## ✨ Key Features
 
-- ⚡ **Sub-100ms Latency**: Powered by Groq LPU inference (`whisper-large-v3-turbo`) for sub-100ms full-phrase transcription.
-- 🎤 **Dedicated `Right Ctrl` Hotkey**: Single tap to start/stop dictation right next to your spacebar—no hand stretching, no browser menu focus conflicts.
-- 🎨 **Handy-Style Glassmorphic HUD Bar**: Thin **210px × 34px** dark emerald glass bar featuring a pulsing mic dot, 9 dynamic audio capsule bars, and a circular close button.
-- 🧠 **Custom Vocabulary & Jargon Biasing**: Pre-loaded with 150+ Google Ads, GTM, Meta Ads, Conversion Tracking, and Admin terms in `custom_vocab.txt`.
-- ⚡ **Local CPU Audio Pre-Processing**: NumPy volume level normalization and 5ms silence trimming on local CPU, shrinking upload payloads by 30% for maximum accuracy and speed.
-- 📋 **Single Clean Paste (`Ctrl+V`)**: Copies text to Windows Clipboard and pastes once upon finishing speech—zero text flickering and zero word repetition.
-- 🚀 **Silent Windows Startup**: Auto-starts seamlessly on Windows boot (`start_voicecraft.vbs`).
-- 🔒 **Privacy-First**: No background audio recording; microphone is activated only during active dictation.
+- ⚡ **Fast Cloud Transcription**: Uses Groq's `whisper-large-v3-turbo` for speech-to-text. If a Gemini API key is also configured, Gemini 2.5 Flash is used automatically as a fallback (or as the primary engine, selectable in Settings).
+- 🎤 **Dedicated `Right Ctrl` Hotkey**: Two modes:
+  - **Hands-free** (default): tap to start, tap again to stop — or stop automatically after a configurable silence (2 s / 3.5 s / 5 s / off).
+  - **Push-to-talk**: hold to record, release to transcribe.
+- 🎨 **Minimal HUD Bar**: A thin 210 × 34 px dark emerald pill at the bottom of the screen with a mic dot and 9 animated level bars driven by your live mic volume. It shows "Transcribing…", "Done" or "Error" and fades out on its own. It can be dragged.
+- 🧠 **Custom Vocabulary Biasing**: `custom_vocab.txt` ships with ~70 Google Ads, Meta Ads, GTM, analytics and business terms, passed to Whisper as a prompt. Keep it under ~800 characters (Groq's prompt limit); it can also be edited in Settings.
+- 🧹 **Optional Text Cleanup** (off by default): an LLM pass that removes filler words and stutters and fixes punctuation. With it off, you get verbatim transcription.
+- 🚫 **Hallucination Filter**: Discards common Whisper silence artifacts ("Thank you", "Thanks for watching", "Subtitles by…").
+- 📋 **Single Clean Paste (`Ctrl+V`)**: Copies the final text to the Windows clipboard and pastes it once, so there is no flicker or repeated text. Note: this replaces your current clipboard contents.
+- 🌐 **Languages**: English, Turkish, Spanish, French, German.
+- 🔒 **Privacy**: The microphone is opened only while you are dictating. Audio is kept in RAM and sent only to the selected API.
 
 ---
 
@@ -26,7 +29,7 @@ It runs quietly in your system tray, listens to your speech with a single **`Rig
 ### Prerequisites
 - Windows 10 or 11.
 - Python 3.10 or higher.
-- A free [Groq API Key](https://console.groq.com/keys) (and optional Gemini API Key).
+- A free [Groq API Key](https://console.groq.com/keys) and/or a Gemini API key.
 
 ### Installation
 
@@ -50,34 +53,58 @@ It runs quietly in your system tray, listens to your speech with a single **`Rig
    ```env
    GROQ_API_KEY=gsk_your_groq_api_key_here
    ```
-   *(Alternatively, right-click the VoiceCraft system tray icon ⚙ Settings to paste your key directly into the UI).*
+   *(Alternatively, leave `.env` empty: on first launch, or from the tray icon's ⚙ Settings, you can paste your Groq/Gemini keys into the UI. They are stored in Windows Credential Manager.)*
 
 4. **Launch the application**:
    ```bash
    python app.py
    ```
 
+### Optional: Start with Windows
+
+`start_voicecraft.vbs` launches VoiceCraft silently (no console window). To start it at login, place a shortcut to it in your Startup folder (`Win+R` → `shell:startup`). `start_whisperflow.bat` launches it with a console window for debugging.
+
+### Optional: Build a standalone .exe
+
+```bash
+pip install nuitka
+python build_exe.py
+```
+This produces a one-file `VoiceCraft.exe` (expect ~50–80 MB due to the Qt runtime).
+
 ---
 
 ## ⌨️ How to Use
 
 1. Focus any text field in any Windows application (Notepad, Outlook, Chrome, Discord, VS Code).
-2. Tap **`Right Ctrl`** once — the thin neon emerald soundwave HUD will pop up at the bottom of your screen.
+2. Tap **`Right Ctrl`** once and the emerald HUD bar appears at the bottom of your screen.
 3. Speak naturally.
-4. Tap **`Right Ctrl`** again (or pause speaking) — VoiceCraft automatically transcribes and pastes the text directly at your cursor!
+4. Tap **`Right Ctrl`** again (or stop talking for the silence timeout). VoiceCraft transcribes and pastes the text at your cursor.
+
+Right-click the tray icon for **Settings** (API keys, engine, microphone, mode, silence timeout, language, cleanup, vocabulary) or **Exit**.
+
+> **Note:** Only API keys and custom vocabulary are saved between restarts. Other settings changed in the dialog last for the current session; to make them permanent, set them in `.env` (e.g. `DICTATION_MODE=push_to_talk`, `SILENCE_AUTO_STOP_SEC=5`, `LANGUAGE=de`, `PREFERRED_ENGINE=gemini`, `TEXT_CLEANUP=true`).
+
+Logs are written to `crash.log` in the app folder.
 
 ---
 
 ## 🛠️ Architecture
 
 - **GUI Overlay & System Tray**: PySide6 (`QSystemTrayIcon`, frameless `QPainter` `HUDPill` window)
-- **Audio Engine**: `sounddevice` + `numpy` (local CPU audio normalization & silence trimming)
-- **STT Engine**: `groq` SDK (`whisper-large-v3-turbo`) with custom prompt biasing
+- **Hotkey**: `pynput` global keyboard listener, bridged to the Qt thread via signals
+- **Audio Engine**: `sounddevice` + `numpy`. Records 16 kHz mono PCM in RAM, detects silence from RMS level, trims leading/trailing silence (keeping ~50 ms padding), and builds the WAV in memory
+- **STT Engines**: `groq` SDK (`whisper-large-v3-turbo`, with vocabulary prompt) and Gemini 2.5 Flash via REST, run in a background `QThread` with automatic fallback between them
 - **Paste Engine**: `win32clipboard` + `pynput` keyboard simulation
-- **Settings**: Pydantic BaseSettings + Windows Credential Manager (`keyring`)
+- **Settings**: Pydantic BaseSettings (`.env`) + Windows Credential Manager (`keyring`) for API keys
+
+Run the tests with:
+```bash
+python -m unittest test_voicecraft
+```
 
 ---
 
 ## 📄 License & Copyright
 
-Copyright © 2026 **Sadekul**. Distributed under the **MIT License**. See [`LICENSE`](file:///C:/Users/Sadek/OneDrive/Projects/VoiceCraft/LICENSE) for details.
+Copyright © 2026 **Sadekul**. Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.

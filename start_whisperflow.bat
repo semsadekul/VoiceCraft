@@ -1,4 +1,8 @@
 @echo off
-title WhisperFlow Lite
+title VoiceCraft
 cd /d "%~dp0"
-python app.py
+if exist "%LOCALAPPDATA%\Python\pythoncore-3.14-64\python.exe" (
+    "%LOCALAPPDATA%\Python\pythoncore-3.14-64\python.exe" app.py
+) else (
+    python app.py
+)

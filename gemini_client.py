@@ -19,7 +19,10 @@ class GeminiClient:
 
     def __init__(self, api_key: str) -> None:
         self.api_key = api_key
-        self.endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{self.MODEL}:generateContent?key={self.api_key}"
+        # Key goes in a header, never the URL: request exceptions embed the URL,
+        # which would otherwise leak the key into crash.log and error toasts.
+        self.endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{self.MODEL}:generateContent"
+        self._headers = {"x-goog-api-key": self.api_key}
 
     def transcribe(
         self,
@@ -54,18 +57,22 @@ class GeminiClient:
             ]
         }
 
-        resp = requests.post(self.endpoint, json=payload, timeout=15)
+        resp = requests.post(self.endpoint, json=payload, headers=self._headers, timeout=15)
         if resp.status_code != 200:
             logger.error("Gemini STT API error {}: {}", resp.status_code, resp.text)
             raise RuntimeError(f"Gemini API Error {resp.status_code}")
 
         data = resp.json()
         try:
-            text = data["candidates"][0]["content"]["parts"][0]["text"]
-            return text.strip()
+            candidates = data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if parts and "text" in parts[0]:
+                    return parts[0]["text"].strip()
+            return ""
         except (KeyError, IndexError) as exc:
             logger.error("Gemini response parse error: {}", data)
-            raise RuntimeError("Failed to parse Gemini response") from exc
+            return ""
 
     def cleanup_text(
         self,
@@ -99,7 +106,7 @@ class GeminiClient:
             ]
         }
 
-        resp = requests.post(self.endpoint, json=payload, timeout=15)
+        resp = requests.post(self.endpoint, json=payload, headers=self._headers, timeout=15)
         if resp.status_code != 200:
             logger.error("Gemini cleanup error {}: {}", resp.status_code, resp.text)
             return raw_text

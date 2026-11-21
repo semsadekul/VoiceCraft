@@ -10,14 +10,14 @@ All I/O is via HTTPS — zero local models, zero model downloads.
 
 from __future__ import annotations
 
-from groq import Groq, APIError
+from groq import Groq, APIError, APIStatusError
 
 
 class GroqClient:
     """Thin wrapper around the Groq SDK for dictation workflows."""
 
     STT_MODEL = "whisper-large-v3-turbo"
-    CLEANUP_MODEL = "llama-3.1-8b-instant"  # Ultra-fast sub-50ms LPU completion
+    CLEANUP_MODEL = "qwen/qwen3.8-27b"  # Fast sub-100ms LPU completion on Groq
 
     def __init__(self, api_key: str) -> None:
         self.client = Groq(api_key=api_key)
@@ -58,10 +58,12 @@ class GroqClient:
         try:
             resp = self.client.audio.transcriptions.create(**kwargs)
             return resp  # str (Groq SDK returns plain str when format="text")
-        except APIError as exc:
-            # If Groq returns 400 error (e.g. prompt length limit exceeded), auto-retry without prompt
-            if exc.status_code == 400 or "prompt" in str(exc).lower():
-                kwargs.pop("prompt", None)
+        except APIStatusError as exc:
+            # Only HTTP errors carry status_code (connection/timeouts are plain APIError and
+            # propagate so the worker can fall back to Gemini). A 400 while sending a
+            # vocabulary prompt usually means the prompt was rejected: retry without it.
+            if exc.status_code == 400 and "prompt" in kwargs:
+                kwargs.pop("prompt")
                 return self.client.audio.transcriptions.create(**kwargs)
             raise
 
@@ -104,13 +106,17 @@ class GroqClient:
             f"Raw text: {raw_text}"
         )
 
-        chat = self.client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model=model,
-            temperature=0.0,
-            max_tokens=1024,
-        )
-        return chat.choices[0].message.content.strip()
+        try:
+            chat = self.client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model=model,
+                temperature=0.0,
+                max_tokens=1024,
+            )
+            return chat.choices[0].message.content.strip()
+        except Exception:
+            # Fall back to raw transcript if cleanup LLM fails
+            return raw_text
 
     # ── Full dictation pipeline ────────────────────────────────
 
@@ -147,4 +153,5 @@ class GroqClient:
         """Extract a human-readable error message from a Groq APIError."""
         if exc.message:
             return str(exc.message)
-        return f"Groq API error: {exc.status_code}" if exc.status_code else str(exc)
+        status = getattr(exc, "status_code", None)
+        return f"Groq API error: {status}" if status else str(exc)
