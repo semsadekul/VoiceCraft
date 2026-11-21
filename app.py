@@ -1,9 +1,9 @@
 """
-WhisperFlow Lite — Main Application
+VoiceCraft — Main Application
 
-A push-to-talk voice dictation app. Hold a global hotkey to record,
-release to transcribe via Groq Cloud API or Gemini 2.5 Flash,
-then paste the result at your cursor position.
+Free, open-source voice dictation for Windows. Tap Right Ctrl (or hold it in
+push-to-talk mode) to record, transcribe via Groq Whisper or Gemini 2.5 Flash,
+then paste the result at your cursor position in any app.
 
 Architecture:
   - Qt main thread: HUD pill, system tray, settings dialog

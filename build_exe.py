@@ -1,5 +1,5 @@
 """
-Build WhisperFlow_Lite into a single portable .exe using Nuitka.
+Build VoiceCraft into a single portable .exe using Nuitka.
 
 Usage:
     python build_exe.py

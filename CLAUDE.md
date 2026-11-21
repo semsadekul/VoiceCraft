@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-VoiceCraft is a Windows-only system-tray dictation app (Python + PySide6). Tapping **Right Ctrl** records from the mic, sends the WAV to Groq Whisper (or Gemini), and pastes the transcript into whatever window has focus via clipboard + simulated `Ctrl+V`. Some files and docstrings still use the old name "WhisperFlow" (`start_whisperflow.bat`, `app.py` header, `build_exe.py`) — same project.
+VoiceCraft is a Windows-only system-tray dictation app (Python + PySide6). Tapping **Right Ctrl** records from the mic, sends the WAV to Groq Whisper (or Gemini), and pastes the transcript into whatever window has focus via clipboard + simulated `Ctrl+V`.
 
 ## Commands
 
@@ -16,7 +16,7 @@ python -m unittest test_voicecraft.TestVoiceCraft.test_groq_client_init   # sing
 python build_exe.py                # Nuitka one-file build -> VoiceCraft.exe (needs `pip install nuitka`)
 ```
 
-- `start_voicecraft.vbs` launches `pythonw.exe app.py` with no console (used for Windows auto-start); `start_whisperflow.bat` runs it with a console. Both prefer `%LOCALAPPDATA%\Python\pythoncore-3.14-64\`.
+- `start_voicecraft.vbs` launches `pythonw.exe app.py` with no console (used for Windows auto-start); `start_voicecraft_console.bat` runs it with a console. Both prefer `%LOCALAPPDATA%\Python\pythoncore-3.14-64\`.
 - Runtime logs go to `crash.log` in the project dir (loguru, 5 MB rotation). Check it when debugging hotkey/recording/API behavior — especially under `pythonw`, where there is no stderr.
 - Tests import real modules, so `pywin32`, `pynput`, `sounddevice` must be installed; no linter/formatter is configured.
 
